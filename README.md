@@ -225,11 +225,7 @@ This tool is intended for authorized security testing and network administration
 
 ## Contributing
 
-Contributions are welcome! Feel free to submit issues or pull requests for:
-- Bug fixes
-- Performance improvements
-- New features
-- Documentation updates
+Contributions are welcome! Feel free to submit issues or pull requests
 
 ## License
 
