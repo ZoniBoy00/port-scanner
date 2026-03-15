@@ -1,36 +1,46 @@
 """
 This module contains the core port scanning logic.
 """
-import socket
-import ipaddress
 import concurrent.futures
-from typing import List, Tuple, Optional, Set
-from dataclasses import dataclass, asdict
+import ipaddress
+import socket
+from dataclasses import asdict, dataclass
+from typing import List, Optional, Tuple
 
-from rich.progress import Progress, SpinnerColumn, BarColumn, TextColumn, TimeRemainingColumn, TimeElapsedColumn
 from rich.console import Console
+from rich.progress import (
+    BarColumn,
+    Progress,
+    SpinnerColumn,
+    TextColumn,
+    TimeElapsedColumn,
+    TimeRemainingColumn,
+)
 
 console = Console()
+
 
 @dataclass
 class ScanResult:
     """
     Data class to store the result of a port scan.
-    
+
     Attributes:
         ip (str): The IP address of the scanned host.
         port (int): The port number.
         service (str): The name of the service running on the port.
         banner (str): The banner grabbed from the port, if any.
     """
+
     ip: str
     port: int
     service: str
     banner: str = ""
-    
+
     def to_dict(self):
         """Converts the ScanResult to a dictionary."""
         return asdict(self)
+
 
 class PortScanner:
     """
@@ -41,7 +51,7 @@ class PortScanner:
         max_workers (int): The maximum number of concurrent threads to use.
         banner_grab (bool): Whether to perform banner grabbing.
     """
-    
+
     def __init__(self, timeout: float = 0.3, max_workers: int = 100, banner_grab: bool = False):
         """
         Initializes the PortScanner.
@@ -55,7 +65,7 @@ class PortScanner:
         self.max_workers = max_workers
         self.banner_grab = banner_grab
         self.service_cache = {}
-    
+
     def get_service_name(self, port: int) -> str:
         """
         Gets the service name for a given port, with caching.
@@ -72,7 +82,7 @@ class PortScanner:
             except (OSError, socket.error):
                 self.service_cache[port] = "unknown"
         return self.service_cache[port]
-    
+
     def grab_banner(self, ip: str, port: int) -> str:
         """
         Attempts to grab the service banner from an open port.
@@ -86,19 +96,19 @@ class PortScanner:
         """
         if not self.banner_grab:
             return ""
-        
+
         try:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
                 sock.settimeout(1.0)
                 sock.connect((ip, port))
                 # Send a generic HTTP HEAD request, which works for many services
-                sock.send(b'HEAD / HTTP/1.0\r\n\r\n')
-                banner = sock.recv(1024).decode('utf-8', errors='ignore').strip()
+                sock.send(b"HEAD / HTTP/1.0\r\n\r\n")
+                banner = sock.recv(1024).decode("utf-8", errors="ignore").strip()
                 return banner[:100]  # Limit banner length
-        except:
+        except Exception:
             # Ignore all errors during banner grabbing
             return ""
-    
+
     def scan_port(self, ip_port: Tuple[str, int], verbose: bool = False) -> Optional[ScanResult]:
         """
         Scans a single port on a single IP address.
@@ -115,7 +125,7 @@ class PortScanner:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
                 sock.settimeout(self.timeout)
                 result = sock.connect_ex((str(ip), port))
-                
+
                 if result == 0:
                     service = self.get_service_name(port)
                     banner = self.grab_banner(str(ip), port)
@@ -128,16 +138,46 @@ class PortScanner:
             pass
         except Exception as e:
             if verbose:
-                console.print(f"[[red]Error[/red]] Error scanning {ip}:{port}: {str(e)}")
-        
+                console.print(f"[red]Error[/red] Error scanning {ip}:{port}: {str(e)}")
+
         return None
-    
-    def scan_target(self, targets: List[str], ports: List[int], verbose: bool = False, show_progress: bool = True) -> List[ScanResult]:
+
+    def _expand_target(self, target: str) -> List[str]:
+        """Expands a target string into a list of IPv4 addresses."""
+        target = target.strip()
+        if not target:
+            raise ValueError("Target cannot be empty")
+
+        if "/" in target:
+            network = ipaddress.IPv4Network(target, strict=False)
+            return [str(ip) for ip in network.hosts()]
+
+        try:
+            ip = ipaddress.IPv4Address(target)
+            return [str(ip)]
+        except ValueError:
+            try:
+                _, _, ip_addresses = socket.gethostbyname_ex(target)
+            except socket.gaierror as exc:
+                raise ValueError(f"Could not resolve hostname '{target}'") from exc
+
+            if not ip_addresses:
+                raise ValueError(f"Hostname '{target}' did not resolve to any IPv4 addresses")
+
+            return list(dict.fromkeys(ip_addresses))
+
+    def scan_target(
+        self,
+        targets: List[str],
+        ports: List[int],
+        verbose: bool = False,
+        show_progress: bool = True,
+    ) -> List[ScanResult]:
         """
         Scans a list of targets for a list of open ports.
 
         Args:
-            targets (List[str]): A list of target IPs or CIDR networks.
+            targets (List[str]): A list of target IPs, hostnames, or CIDR networks.
             ports (List[int]): A list of ports to scan.
             verbose (bool): Whether to print verbose output.
             show_progress (bool): Whether to display a progress bar.
@@ -148,24 +188,18 @@ class PortScanner:
         ip_port_pairs = []
         for target in targets:
             try:
-                # Handle CIDR notation
-                if '/' in target:
-                    network = ipaddress.IPv4Network(target, strict=False)
-                    for ip in network.hosts():
-                        ip_port_pairs.extend([(str(ip), port) for port in ports])
-                else:
-                    # Handle single IP
-                    ip = ipaddress.IPv4Address(target)
-                    ip_port_pairs.extend([(str(ip), port) for port in ports])
+                expanded_targets = self._expand_target(target)
+                for ip in expanded_targets:
+                    ip_port_pairs.extend([(ip, port) for port in ports])
             except ValueError as e:
-                console.print(f"[[red]Error[/red]] Invalid target: {target} - {e}")
+                console.print(f"[red]Error[/red] Invalid target: {target} - {e}")
                 continue
-        
+
         if not ip_port_pairs:
             return []
-        
+
         results = []
-        
+
         # Configure rich progress bar
         progress_columns = [
             SpinnerColumn(),
@@ -179,7 +213,7 @@ class PortScanner:
         with Progress(*progress_columns, console=console, disable=not show_progress) as progress:
             with concurrent.futures.ThreadPoolExecutor(max_workers=self.max_workers) as executor:
                 scan_task = progress.add_task("Scanning...", total=len(ip_port_pairs))
-                
+
                 # Submit all scan jobs to the thread pool
                 futures = {executor.submit(self.scan_port, pair, verbose): pair for pair in ip_port_pairs}
 
@@ -189,7 +223,7 @@ class PortScanner:
                     if result:
                         results.append(result)
                         if verbose:
-                            console.print(f"[[bold green]OPEN[/bold green]] {result.ip}:{result.port} ({result.service})")
+                            console.print(f"[bold green]OPEN[/bold green] {result.ip}:{result.port} ({result.service})")
                     progress.update(scan_task, advance=1)
-        
+
         return results

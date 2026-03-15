@@ -68,7 +68,7 @@ if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
-        console.print("\n\n[[yellow]Scan interrupted by user.[/yellow]]")
+        console.print("\n\n[yellow]Scan interrupted by user.[/yellow]")
     except Exception as e:
-        console.print(f"\n[[red]Fatal error[/red]]: {e}")
+        console.print(f"\n[red]Fatal error[/red]: {e}")
         console.print_exception(show_locals=True)
