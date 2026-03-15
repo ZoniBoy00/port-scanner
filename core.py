@@ -22,7 +22,7 @@ def run_scan(targets: List[str], ports: List[int], timeout: float, workers: int,
         output (Optional[str]): The output file path.
     """
     if not ports:
-        console.print("[[red]Error[/red]] No valid ports specified.")
+        console.print("[red]Error[/red] No valid ports specified.")
         return
 
     # Initialize the scanner
@@ -46,6 +46,6 @@ def run_scan(targets: List[str], ports: List[int], timeout: float, workers: int,
             # Determine output format from file extension
             ext = output.split('.')[-1].lower()
             if ext not in ['txt', 'json', 'csv']:
-                console.print(f"[[yellow]Warning[/yellow]] Invalid output format '{ext}', defaulting to 'txt'.")
+                console.print(f"[yellow]Warning[/yellow] Invalid output format '{ext}', defaulting to 'txt'.")
                 ext = 'txt'
             save_results(results, ext, output)

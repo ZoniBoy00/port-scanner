@@ -50,18 +50,18 @@ def parse_port_range(port_input: str) -> List[int]:
                 if 1 <= start <= 65535 and 1 <= end <= 65535 and start <= end:
                     ports.update(range(start, end + 1))
                 else:
-                    console.print(f"[[yellow]Warning[/yellow]] Invalid port range: {part}. Ports must be between 1 and 65535.")
+                    console.print(f"[yellow]Warning[/yellow] Invalid port range: {part}. Ports must be between 1 and 65535.")
             except ValueError:
-                console.print(f"[[yellow]Warning[/yellow]] Invalid port range format: {part}")
+                console.print(f"[yellow]Warning[/yellow] Invalid port range format: {part}")
         else:
             try:
                 port = int(part)
                 if 1 <= port <= 65535:
                     ports.add(port)
                 else:
-                    console.print(f"[[yellow]Warning[/yellow]] Invalid port: {part}. Port must be between 1 and 65535.")
+                    console.print(f"[yellow]Warning[/yellow] Invalid port: {part}. Port must be between 1 and 65535.")
             except ValueError:
-                console.print(f"[[yellow]Warning[/yellow]] Invalid port number: {part}")
+                console.print(f"[yellow]Warning[/yellow] Invalid port number: {part}")
     
     return sorted(list(ports))
 
@@ -125,6 +125,6 @@ def save_results(results: List[ScanResult], output_format: str, filename: str):
                 writer.writeheader()
                 writer.writerows([r.to_dict() for r in results])
         
-        console.print(f"\n[[bold green]Success[/bold green]] Results saved to '{filename}'")
+        console.print(f"\n[bold green]Success[/bold green] Results saved to '{filename}'")
     except IOError as e:
-        console.print(f"\n[[red]Error[/red]] Could not save results to '{filename}': {e}")
+        console.print(f"\n[red]Error[/red] Could not save results to '{filename}': {e}")
